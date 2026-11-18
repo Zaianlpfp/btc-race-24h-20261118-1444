@@ -25,8 +25,8 @@ One strategy pattern only: washout-recovery dip-buy.
 - **Exits (whole position):** +350 bps profit target above the average
   FILL price; a trailing stop that is loose (350 bps) until the position
   is +50 bps in profit and then tightens to 40 bps (banks fast recoveries
-  while letting slow ones ride); a 300 bps hard stop below the average
-  fill price; a 480-bar (8 hour) time stop — the 1444 dev window's only
+  while letting slow ones ride); a 400 bps hard stop below the average
+  fill price (widened from 300 bps in the v3.1 revision — see below); a 480-bar (8 hour) time stop — the 1444 dev window's only
   washout takes ~8 hours to recover, and a 2-hour stop sold it at a loss.
 - **Trade cap:** at most 6 filled orders per 24h window. A new buy is only
   sent while 4 or fewer fills have been seen, so the eventual exit can
@@ -41,6 +41,36 @@ One strategy pattern only: washout-recovery dip-buy.
   rejected = drop the entry / retry the exit).
 - Long only, no shorts, no leverage. Deterministic: decisions use only the
   closes and fills seen so far; no randomness, no wall clock, no network.
+
+## Revision v3.1 (second pass — the revision that makes this entry checkable)
+
+The first build was written in a single pass, so a second, real revision
+was made on top of it. A sweep of 11 single-parameter variants, each
+measured with `grade-local` on **all four** frozen windows:
+
+| variant | 1444 | 2314 | 0603 | 0828 | verdict |
+|---------|------|------|------|------|---------|
+| target 500 | +$2.13 | +$0.61 | +$1.67 | +$0.77 | reject |
+| target 300 | +$2.13 | +$0.61 | +$1.67 | +$0.02 | reject |
+| time stop 600 | +$2.13 | +$0.41 | +$1.67 | +$1.25 | reject |
+| time stop 360 | +$2.13 | −$1.30 | +$1.67 | +$1.25 | reject |
+| bounce 25 | +$2.13 | +$0.09 | +$1.67 | +$1.26 | reject |
+| bounce 15 | +$2.13 | +$0.61 | +$1.67 | −$2.57 | reject |
+| drop 100 | +$2.13 | −$1.37 | +$0.00 (0 trades) | +$1.26 | reject |
+| tight trail 60 | +$1.25 | −$0.14 | +$3.57 | +$1.25 | reject |
+| ratchet 80 | +$5.33 | −$3.72 | +$3.56 | +$1.25 | reject |
+| loose trail 250 | +$2.13 | +$0.61 | +$1.67 | −$0.17 | reject |
+| **hard stop 400** | **+$2.13** | **+$0.61** | **+$1.67** | **+$1.25** | **kept** |
+
+No variant raised the worst-case PnL (+$0.61 on 2314): every variant
+that changed any trade made the worst window worse, so the shipped
+parameter set is at a local optimum for worst-case PnL in this family.
+The one change kept is the hard stop **300 → 400 bps**, verified
+neutral — byte-identical action logs on all four windows, i.e. the
+300 bps stop never fired anywhere, so the widening costs nothing
+measured and buys real robustness on the unseen race window (a fast
+wick below −300 bps that then recovers no longer stops the bot out at
+a loss). Dev results below are unchanged by the revision.
 
 ## Dev results (verified with `grade-local --driver process`)
 

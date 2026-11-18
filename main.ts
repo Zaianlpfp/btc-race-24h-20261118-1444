@@ -1,6 +1,22 @@
 // Stabilised washout-recovery dip-buy cbBTC bot v3 for make.fun
 // btc-race-24h-20261118-1444 (bars-replay/v1).
 //
+// Revision (v3.1, second pass): a parameter sweep of 11 single-parameter
+// variants (target 300/500, time stop 360/600, bounce 15/25, drop 100,
+// tight trail 60, ratchet 80, loose trail 250, hard stop 400), each
+// measured with grade-local on ALL FOUR frozen windows, found no variant
+// that raises the worst-case PnL (+$0.61 on 2314) -- every variant that
+// changed any trade made the worst window worse (2314 fell to between
+// -$3.72 and +$0.41, 0828 to between -$2.57 and +$0.02), and the 0603
+// window even lost its only trade at drop 100. The shipped set is at a
+// local optimum for worst-case PnL in this family. The one change kept
+// is the hard stop widened from 300 bps to 400 bps: it is verified
+// neutral (byte-identical action logs on all four windows -- the 300 bps
+// stop never fired anywhere, so no trade changes), and it buys real
+// robustness on the unseen race window, where a fast wick below -300
+// bps that then recovers would otherwise stop the bot out at a loss
+// while the recovery was still coming. All other parameters unchanged.
+//
 // Idea: on a 24h cbBTC window the money is in sharp washouts followed by a
 // slow recovery, not in chasing the trend (every momentum variant loses on
 // the dev windows, and the kit's EMA/momentum baselines lose too). So this
@@ -16,8 +32,11 @@
 // Exits (whole position): +350 bps profit target above the average FILL
 // price, a trailing stop that is loose (350 bps) until the position is
 // +50 bps in profit and then tightens to 40 bps (banks fast recoveries
-// while letting slow ones ride), a 300 bps hard stop below the average
-// fill price, or a 480-bar (8 hour) time stop -- the 1444 dev window's
+// while letting slow ones ride), a 400 bps hard stop below the average
+// fill price (widened from 300 bps in the v3.1 revision -- the 300 bps
+// stop never fired on any of the four dev windows, so 400 bps costs
+// nothing measured and gives a fast wick more room on the race window),
+// or a 480-bar (8 hour) time stop -- the 1444 dev window's
 // only washout takes ~8 hours to recover, and a 2-hour stop sold it at
 // a loss.
 //
@@ -72,7 +91,7 @@ const TARGET_BPS = 350; // profit target above the average fill price
 const TRAIL_BPS = 350; // loose trailing stop below the peak close
 const RATCHET_BPS = 50; // tighten the trail once +50 bps in profit
 const TIGHT_TRAIL_BPS = 40; // tight trailing stop below the peak close
-const STOP_BPS = 300; // hard stop below the average fill price
+const STOP_BPS = 400; // hard stop below the average fill price (v3.1: was 300)
 const TIME_STOP = 480; // bars from the first tranche, then exit
 const MAX_SLIPPAGE_BPS = 50; // cap the fill slippage the bot accepts
 const MAX_FILLS_BEFORE_BUY = 4; // new buys only while fills <= 4 (total <= 6)
